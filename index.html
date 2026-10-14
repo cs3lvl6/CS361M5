@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive Quiz - Data-Link Layer & Multiple Access</title>
+<h1 style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); margin-top: 10px; white-space: nowrap; color: white;">
+  Computer Networks Module 5
+</h1>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, 'Segoe UI', Tahoma, sans-serif; }
+  body {
+    background: #3b3f44;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+  }
+  .card {
+    background: #ffffff;
+    width: 100%;
+    max-width: 720px;
+    border-radius: 20px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+    padding: 28px 26px;
+  }
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 16px;
+  }
+  .progress {
+    background: #e2e8f0;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-weight: 600;
+    color: #1e293b;
+  }
+  .question {
+    font-size: 19px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .option {
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 15px;
+    color: #1e293b;
+    cursor: pointer;
+    transition: 0.15s;
+    text-align: left;
+    line-height: 1.5;
+  }
+  .option:hover:not(.locked) { background: #eff6ff; border-color: #93c5fd; }
+  .option.correct {
+    background: #dcfce7;
+    border-color: #22c55e;
+    color: #14532d;
+    font-weight: 600;
+  }
+  .option.wrong {
+    background: #fee2e2;
+    border-color: #ef4444;
+    color: #7f1d1d;
+  }
+  .option.locked { cursor: default; }
+  .explanation {
+    margin-top: 18px;
+    background: #eff6ff;
+    border-left: 5px solid #3b82f6;
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 15px;
+    color: #1e3a8a;
+    line-height: 1.7;
+  }
+  .explanation strong { color: #1d4ed8; }
+  .nav-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .navbtn {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.15s;
+  }
+  .prevbtn {
+    background: #e2e8f0;
+    color: #334155;
+  }
+  .prevbtn:hover:not(:disabled) { background: #cbd5e1; }
+  .nextbtn {
+    background: #2563eb;
+    color: #fff;
+  }
+  .nextbtn:hover:not(:disabled) { background: #1d4ed8; }
+  .navbtn:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+  .final {
+    text-align: center;
+    padding: 20px 0;
+  }
+  .final h2 { font-size: 26px; color: #0f172a; margin-bottom: 10px; }
+  .final p { font-size: 18px; color: #475569; margin-bottom: 20px; }
+  .restart {
+    padding: 12px 28px;
+    background: #16a34a;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .restart:hover { background: #15803d; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="card" id="app"></div>
+
+<script>
+/* ============ Questions Data ============ */
+const questions = [
+  { q: "1. What is the nature of communication at the data-link layer?",
+    options: ["A. Host-to-host", "B. Node-to-node", "C. Process-to-process", "D. Application-to-application"],
+    correct: 1,
+    explanation: "Communication at the data-link layer is strictly node-to-node." },
+  { q: "2. In the simple representation of a network path with six nodes (Figure 9.2), if the 1st, 3rd, and 5th links are LANs, what do the 2nd and 4th links represent?",
+    options: ["A. Routers", "B. Point-to-point networks (WANs)", "C. Broadcast links", "D. End hosts"],
+    correct: 1,
+    explanation: "In the provided six-node example, the second and fourth links represent the two WANs (Point-to-point networks)." },
+  { q: "3. According to the communication model in Figure 9.3, which layer number is assigned to the Data-link layer?",
+    options: ["A. Layer 1", "B. Layer 2", "C. Layer 3", "D. Layer 4"],
+    correct: 1,
+    explanation: "The Data-link layer is designated as Layer 2." },
+  { q: "4. Based on the position of ARP in the TCP/IP protocol suite (Figure 9.6), how many bits is the IP address that ARP accepts?",
+    options: ["A. 16 bits", "B. 32 bits", "C. 48 bits", "D. 64 bits"],
+    correct: 1,
+    explanation: "The IP address provided to ARP is 32 bits." },
+  { q: "5. According to the taxonomy of multiple-access protocols, to which specific category do CSMA, CSMA/CD, and CSMA/CA belong?",
+    options: ["A. Controlled-access protocols", "B. Channelization protocols", "C. Token passing protocols", "D. Random-access protocols"],
+    correct: 3,
+    explanation: "CSMA, CSMA/CD, and CSMA/CA are all listed under Random-access protocols." },
+  { q: "6. In the CSMA/CA protocol (Figure 12.17), what does the acronym DIFS stand for?",
+    options: ["A. Data Interframe Spacing", "B. DCF Interframe Spacing", "C. Direct Interframe Spacing", "D. Delay Interframe Spacing"],
+    correct: 1,
+    explanation: "DIFS stands for DCF Interframe Spacing." },
+  { q: "7. In the CSMA/CA protocol (Figure 12.17), what does the acronym SIFS stand for?",
+    options: ["A. Short Inter-frame Spacing", "B. Standard Inter-frame Spacing", "C. Signal Inter-frame Spacing", "D. Sequential Inter-frame Spacing"],
+    correct: 0,
+    explanation: "SIFS stands for Short Inter-frame Spacing." },
+  { q: "8. The text mentions three methods devised to answer what a station should do if a channel is busy or idle. Two are the 1-persistent method and the nonpersistent method. What is the third?",
+    options: ["A. The 0-persistent method", "B. The random-persistent method", "C. The p-persistent method", "D. The constant-persistent method"],
+    correct: 2,
+    explanation: "The three methods devised are the 1-persistent method, the nonpersistent method, and the p-persistent method." },
+  { q: "9. In the polling access method, if a secondary device wants to send data to another secondary device, how must the data exchange be routed?",
+    options: ["A. Directly between the two secondary devices", "B. Through a token ring", "C. Through the primary device", "D. Using a random access broadcast"],
+    correct: 2,
+    explanation: "All data exchanges must be made through the primary device even when the ultimate destination is a secondary device." },
+  { q: "10. In the CDMA model (Figure 12.23), if station 1 has data d1 and code c1, and station 2 has data d2 and code c2, how is the combined data on the common channel represented mathematically?",
+    options: ["A. d1 + d2 + c1 + c2", "B. d1 · d2 + c1 · c2", "C. d1·c1 + d2·c2 + d3·c3 + d4·c4", "D. (d1 + c1) · (d2 + c2)"],
+    correct: 2,
+    explanation: "The data on the common channel is the sum of the products of each station's data and its corresponding code chip (d1·c1 + d2·c2 + d3·c3 + d4·c4)." },
+  { q: "11. What do the first and last nodes represent in a simple internetwork path?",
+    options: ["A. The source host and destination host", "B. Two routers", "C. Two links", "D. The LAN and the WAN"],
+    correct: 0,
+    explanation: "In a simple representation of links and nodes, the first node is the source host and the last node is the destination host." },
+  { q: "12. In the context of a data-link layer path, what do the nodes between the source and destination hosts represent?",
+    options: ["A. Links", "B. Switches", "C. Routers", "D. Gateways"],
+    correct: 2,
+    explanation: "The nodes in between the end hosts on a path through an internetwork are routers." },
+  { q: "13. What term is used to refer to the networks (LANs and WANs) located between nodes?",
+    options: ["A. Hops", "B. Links", "C. Paths", "D. Bridges"],
+    correct: 1,
+    explanation: "It is usual to refer to the networks (LANs and WANs) between nodes as links." },
+  { q: "14. Where is the data-link layer located within the network model?",
+    options: ["A. Between the transport and application layers", "B. Between the physical and the network layers", "C. Between the network and transport layers", "D. Below the physical layer"],
+    correct: 1,
+    explanation: "The data-link layer is located between the physical and the network layers." },
+  { q: "15. Which of the following is NOT listed as a service provided by the data-link layer?",
+    options: ["A. Framing", "B. Flow Control", "C. Routing", "D. Error Control"],
+    correct: 2,
+    explanation: "The services of the data-link layer include Framing, Flow Control, Error Control, and Congestion Control, but not Routing." },
+  { q: "16. Which data-link layer service involves encapsulating the packet received from the network layer?",
+    options: ["A. Framing", "B. Flow Control", "C. Error Control", "D. Congestion Control"],
+    correct: 0,
+    explanation: "Framing is the service where the data-link layer encapsulates the datagram into a frame before sending it to the next node." },
+  { q: "17. When must the receiving end buffer frames while waiting for them to be processed?",
+    options: ["A. When the rate of consumed frames is higher than the rate of produced frames", "B. When the rate of produced frames is higher than the rate of consumed frames", "C. When frames are susceptible to error", "D. When framing decapsulation fails"],
+    correct: 1,
+    explanation: "Flow control dictates that if the rate of produced frames is higher than the rate of consumed frames, they must be buffered at the receiving end." },
+  { q: "18. Why are frames susceptible to error during transmission?",
+    options: ["A. Because they are processed too quickly by the consumer", "B. Because electromagnetic signals are susceptible to error", "C. Because routers often drop them intentionally", "D. Because the data-link header is too large"],
+    correct: 1,
+    explanation: "Frames are susceptible to error because electromagnetic signals, which transmit the frames, are susceptible to error." },
+  { q: "19. What is the first step of error control at the receiving node?",
+    options: ["A. Retransmission", "B. Correction", "C. Discarding", "D. Detection"],
+    correct: 3,
+    explanation: "In error control, the error needs to first be detected before it is either corrected or the frame is discarded and retransmitted." },
+  { q: "20. Do most data-link-layer protocols directly use congestion control?",
+    options: ["A. Yes, all protocols use it extensively.", "B. No, most do not directly use it, although some WANs do.", "C. No, it is exclusively a physical layer responsibility.", "D. Yes, but only for point-to-point links."],
+    correct: 1,
+    explanation: "Most data-link-layer protocols do not directly use congestion control to alleviate congestion, though some wide-area networks (WANs) do." },
+  { q: "21. Which category of link uses the whole capacity of the medium?",
+    options: ["A. Broadcast link", "B. Point-to-point link", "C. Multicast link", "D. Shared link"],
+    correct: 1,
+    explanation: "A point-to-point link is one where the data-link layer uses the whole capacity of the medium." },
+  { q: "22. What type of link is utilized when two friends use traditional home phones to chat?",
+    options: ["A. Broadcast link", "B. Multipoint link", "C. Point-to-point link", "D. Wireless link"],
+    correct: 2,
+    explanation: "Using traditional home phones to chat is given as an example of a point-to-point link." },
+  { q: "23. What type of link is shared among many users, such as in the case of cellular phones?",
+    options: ["A. Point-to-point link", "B. Unicast link", "C. Dedicated link", "D. Broadcast link"],
+    correct: 3,
+    explanation: "Cellular phones use a broadcast link because the air is shared among many cell phone users." },
+  { q: "24. Into which two sublayers can the data-link layer be divided?",
+    options: ["A. Physical and Network", "B. Data Link Control (DLC) and Media Access Control (MAC)", "C. Error Control and Flow Control", "D. Routing and Switching"],
+    correct: 1,
+    explanation: "The data-link layer can be divided into the Data Link Control (DLC) and Media Access Control (MAC) sublayers." },
+  { q: "25. Which sublayer of the data-link layer deals with issues common to both point-to-point and broadcast links?",
+    options: ["A. MAC sublayer", "B. DLC sublayer", "C. Framing sublayer", "D. Addressing sublayer"],
+    correct: 1,
+    explanation: "The Data Link Control (DLC) sublayer deals with issues common to both point-to-point and broadcast links." },
+  { q: "26. Which sublayer deals exclusively with issues specific to broadcast links?",
+    options: ["A. DLC sublayer", "B. Logical Link Control", "C. MAC sublayer", "D. Framing sublayer"],
+    correct: 2,
+    explanation: "The media access control (MAC) sublayer deals only with issues specific to broadcast links." },
+  { q: "27. What identifiers are used at the network layer?",
+    options: ["A. MAC addresses", "B. Link-layer addresses", "C. Physical addresses", "D. IP addresses"],
+    correct: 3,
+    explanation: "IP addresses are used as the identifiers at the network layer." },
+  { q: "28. Why are IP addresses alone insufficient to move a datagram to its destination in an internetwork?",
+    options: ["A. They define only the links, not the ends.", "B. They define the two ends but cannot define which links the packet should pass through.", "C. They change every time the packet moves.", "D. They do not contain enough bits."],
+    correct: 1,
+    explanation: "IP addresses define the source and destination (the two ends) but cannot define the specific links the packet should pass through." },
+  { q: "29. Which of the following is NOT an alternative name for a link-layer address?",
+    options: ["A. Link address", "B. Physical address", "C. Logical address", "D. MAC address"],
+    correct: 2,
+    explanation: "A link-layer address is also called a link address, physical address, hardware address, or MAC address, but not a logical address." },
+  { q: "30. How many data-link addresses are added to the frame header when a datagram is encapsulated?",
+    options: ["A. One", "B. Two", "C. Three", "D. Four"],
+    correct: 1,
+    explanation: "Two data-link addresses are added to the frame header when the datagram is encapsulated." },
+  { q: "31. When do the data-link addresses in a frame change?",
+    options: ["A. Every time the IP address changes", "B. Every time the frame moves from one link to another", "C. Never, they remain constant end-to-end", "D. Only when moving from a LAN to a WAN"],
+    correct: 1,
+    explanation: "These two addresses are changed every time the frame moves from one link to another." },
+  { q: "32. What does unicasting mean?",
+    options: ["A. One-to-many communication", "B. One-to-all communication", "C. One-to-one communication", "D. Many-to-many communication"],
+    correct: 2,
+    explanation: "Unicasting means one-to-one communication." },
+  { q: "33. What does multicasting mean in the context of link-layer addressing?",
+    options: ["A. One-to-one communication", "B. One-to-many communication", "C. One-to-all communication", "D. Any-to-any communication"],
+    correct: 1,
+    explanation: "Multicasting means one-to-many communication." },
+  { q: "34. What does broadcasting mean in the context of link-layer addressing?",
+    options: ["A. One-to-one communication", "B. One-to-many communication", "C. One-to-all communication", "D. Node-to-router communication"],
+    correct: 2,
+    explanation: "Broadcasting means one-to-all communication." },
+  { q: "35. How many bits make up a unicast link-layer address in an Ethernet LAN?",
+    options: ["A. 16 bits", "B. 32 bits", "C. 48 bits", "D. 64 bits"],
+    correct: 2,
+    explanation: "The unicast link-layer addresses in Ethernet are 48 bits (six bytes)." },
+  { q: "36. In an Ethernet unicast MAC address presented in hexadecimal, what is the rule for the second digit?",
+    options: ["A. It must be an odd number.", "B. It must be an even number.", "C. It must be zero.", "D. It must be a letter."],
+    correct: 1,
+    explanation: "For a unicast link-layer address in Ethernet, the second hexadecimal digit needs to be an even number." },
+  { q: "37. What distinguishes the second hexadecimal digit of a multicast link-layer address in Ethernet?",
+    options: ["A. It is an even number.", "B. It is an odd number.", "C. It is always an 'F'.", "D. It is identical to the first digit."],
+    correct: 1,
+    explanation: "In a multicast link-layer address, the second digit needs to be an odd number in hexadecimal." },
+  { q: "38. What is the value of an Ethernet broadcast link-layer address?",
+    options: ["A. 48 bits of alternating 1s and 0s", "B. 48 bits, all 1s (FF:FF:FF:FF:FF:FF)", "C. 48 bits, all 0s (00:00:00:00:00:00)", "D. 32 bits, all 1s"],
+    correct: 1,
+    explanation: "The broadcast link-layer addresses in Ethernet are 48 bits, all 1s, presented as FF:FF:FF:FF:FF:FF." },
+  { q: "39. What protocol is used to map an IP address to the corresponding link-layer address?",
+    options: ["A. ICMP", "B. IGMP", "C. ARP", "D. RARP"],
+    correct: 2,
+    explanation: "The Address Resolution Protocol (ARP) maps an IP address to the corresponding link-layer address." },
+  { q: "40. After ARP maps an IP address to the corresponding link-layer address, what does it do with it?",
+    options: ["A. It passes it to the network layer.", "B. It passes it to the data-link layer.", "C. It passes it to the transport layer.", "D. It broadcasts it again."],
+    correct: 1,
+    explanation: "ARP maps the address to the corresponding link-layer address and passes it to the data-link layer." },
+  { q: "41. How is an ARP request transmitted on the network?",
+    options: ["A. It is unicast.", "B. It is multicast.", "C. It is broadcast.", "D. It is sent via point-to-point."],
+    correct: 2,
+    explanation: "An ARP request is broadcast looking for the MAC address associated with a specific IP." },
+  { q: "42. How is an ARP reply transmitted back to the requester?",
+    options: ["A. It is broadcast.", "B. It is multicast.", "C. It is unicast.", "D. It floods the network."],
+    correct: 2,
+    explanation: "The host responds with an ARP reply that is unicast." },
+  { q: "43. In an ARP packet, which field is explicitly left empty in an ARP request?",
+    options: ["A. Source hardware address", "B. Source protocol address", "C. Destination protocol address", "D. Destination hardware address"],
+    correct: 3,
+    explanation: "The \"Destination hardware address\" field is empty in an ARP request." },
+  { q: "44. In an ARP packet, what is the length of the Operation field?",
+    options: ["A. 8 bits", "B. 16 bits", "C. 32 bits", "D. 48 bits"],
+    correct: 1,
+    explanation: "The Operation field in an ARP packet is 16 bits." },
+  { q: "45. What value does the Operation field hold for an ARP request?",
+    options: ["A. 0", "B. 1", "C. 2", "D. 4"],
+    correct: 1,
+    explanation: "The Operation field has a value of 1 for a Request." },
+  { q: "46. What value does the Operation field hold for an ARP reply?",
+    options: ["A. 1", "B. 2", "C. 3", "D. 8"],
+    correct: 1,
+    explanation: "The Operation field has a value of 2 for a Reply." },
+  { q: "47. What sublayer do multiple-access protocols belong to?",
+    options: ["A. Network Control", "B. Media Access Control (MAC)", "C. Logical Link Control (LLC)", "D. Physical Media"],
+    correct: 1,
+    explanation: "All of these protocols belong to a sublayer in the data-link layer called media access control (MAC)." },
+  { q: "48. Which of the following is a random-access protocol?",
+    options: ["A. Token passing", "B. FDMA", "C. ALOHA", "D. Polling"],
+    correct: 2,
+    explanation: "ALOHA is listed under random-access protocols." },
+  { q: "49. Which characteristic defines random-access methods?",
+    options: ["A. A primary station assigns access to others.", "B. Bandwidth is shared in fixed time slots.", "C. No station is superior to another and none has control over another.", "D. Time is divided into intervals requiring reservations."],
+    correct: 2,
+    explanation: "In random-access methods, no station is superior to another and none is assigned control over another." },
+  { q: "50. In random access, what does a station base its decision to send data on?",
+    options: ["A. Authorization from a primary station", "B. The state of the medium (idle or busy)", "C. Its designated time slot", "D. Its allocated frequency band"],
+    correct: 1,
+    explanation: "The decision on whether or not to send depends on the state of the medium (idle or busy)." },
+  { q: "51. Where and when was ALOHA developed?",
+    options: ["A. MIT in 1980", "B. University of Hawaii in early 1970", "C. Stanford in 1975", "D. CERN in 1990"],
+    correct: 1,
+    explanation: "ALOHA, the earliest random-access method, was developed at the University of Hawaii in early 1970." },
+  { q: "52. For what type of network was ALOHA originally designed?",
+    options: ["A. Fiber optic WAN", "B. Copper wire LAN", "C. Radio (wireless) LAN", "D. Satellite network"],
+    correct: 2,
+    explanation: "It was designed for a radio (wireless) LAN." },
+  { q: "53. What happens to the data frames in ALOHA when two stations attempt to send data at the same time?",
+    options: ["A. They are queued automatically.", "B. They collide and become garbled.", "C. They are buffered by the switch.", "D. They pass through safely on different frequencies."],
+    correct: 1,
+    explanation: "The data from the two stations collide and become garbled." },
+  { q: "54. What principle is CSMA based on?",
+    options: ["A. Collision free transmission", "B. Sense before transmit (listen before talk)", "C. Scheduled time slots", "D. Code allocation"],
+    correct: 1,
+    explanation: "CSMA is based on the principle \"sense before transmit\" or \"listen before talk\"." },
+  { q: "55. Why does CSMA fail to completely eliminate collisions?",
+    options: ["A. Because stations ignore the protocol.", "B. Because of propagation delay.", "C. Because all stations send simultaneously by design.", "D. Because the medium capacity is too small."],
+    correct: 1,
+    explanation: "The possibility of collision still exists because of propagation delay; a station may find the medium idle if the first bit sent by another station has not yet reached it." },
+  { q: "56. How does CSMA/CD augment the CSMA algorithm?",
+    options: ["A. By reserving a time slot for transmission.", "B. By monitoring the medium after sending to see if transmission was successful.", "C. By sending a request to send (RTS) frame.", "D. By allocating a unique code chip to each station."],
+    correct: 1,
+    explanation: "In CSMA/CD, a station monitors the medium after it sends a frame to see if the transmission was successful or if a collision occurred." },
+  { q: "57. What happens if a collision is detected in CSMA/CD?",
+    options: ["A. The frame is discarded permanently.", "B. The station gives up control to a primary node.", "C. The frame is sent again.", "D. The bandwidth is split."],
+    correct: 2,
+    explanation: "If there is a collision in CSMA/CD, the frame is sent again." },
+  { q: "58. For what type of networks was CSMA/CA invented?",
+    options: ["A. Optical networks", "B. Point-to-point networks", "C. Wireless networks", "D. Token ring networks"],
+    correct: 2,
+    explanation: "Carrier sense multiple access with collision avoidance (CSMA/CA) was invented for wireless networks." },
+  { q: "59. In the CSMA/CA exchange process, what does the acronym RTS represent?",
+    options: ["A. Ready to Send", "B. Request to Send", "C. Route to Switch", "D. Random Time Slot"],
+    correct: 1,
+    explanation: "RTS stands for Request to send." },
+  { q: "60. In the CSMA/CA exchange process, what does the acronym CTS represent?",
+    options: ["A. Carrier Time Slot", "B. Collision Transmission Signal", "C. Clear to Send", "D. Carrier transmission space"],
+    correct: 2,
+    explanation: "CTS stands for Clear to send." },
+  { q: "61. Which of the following is NOT one of the three strategies used by CSMA/CA to avoid collisions?",
+    options: ["A. Interframe space (IFS)", "B. Contention window", "C. Acknowledgments", "D. Carrier detection abort"],
+    correct: 3,
+    explanation: "Collisions are avoided through CSMA/CA's three strategies: interframe space (IFS), contention window, and acknowledgments." },
+  { q: "62. In persistence methods, what is the behavior of the 1-persistent method when it finds the line idle?",
+    options: ["A. It waits a random amount of time.", "B. It sends its frame immediately.", "C. It requests authorization.", "D. It waits for an acknowledgment."],
+    correct: 1,
+    explanation: "In the 1-persistent method, after the station finds the line idle, it sends its frame immediately." },
+  { q: "63. What is a major disadvantage of the 1-persistent method?",
+    options: ["A. It reduces network efficiency.", "B. It has the highest chance of collision.", "C. It limits bandwidth usage.", "D. It requires complex code assignment."],
+    correct: 1,
+    explanation: "The 1-persistent method has the highest chance of collision because multiple stations may find the line idle and send simultaneously." },
+  { q: "64. What does a station do in the nonpersistent method if the line is not idle?",
+    options: ["A. It sends immediately anyway.", "B. It waits continuously monitoring the line.", "C. It waits a random amount of time and senses the line again.", "D. It drops the frame permanently."],
+    correct: 2,
+    explanation: "If the line is not idle, the station waits a random amount of time and then senses the line again in the nonpersistent method." },
+  { q: "65. What is the tradeoff of using the nonpersistent method?",
+    options: ["A. It increases collisions.", "B. It reduces network efficiency because the medium remains idle when stations have frames to send.", "C. It requires an acknowledgment before sensing.", "D. It strictly requires token passing."],
+    correct: 1,
+    explanation: "This method reduces the efficiency of the network because the medium remains idle when there may be stations with frames to send." },
+  { q: "66. In controlled-access methods, what must a station do before sending data?",
+    options: ["A. Sense the medium", "B. Consult one another to be authorized", "C. Send an ARP request", "D. Broadcast its MAC address"],
+    correct: 1,
+    explanation: "In controlled access, a station cannot send unless it has been authorized by other stations, as they consult one another." },
+  { q: "67. According to the taxonomy of multiple-access protocols, which of the following falls under Controlled-access protocols?",
+    options: ["A. ALOHA", "B. CSMA/CA", "C. Polling", "D. FDMA"],
+    correct: 2,
+    explanation: "Polling is categorized as a Controlled-access protocol, along with Reservation and Token passing." },
+  { q: "68. How is time structured in the reservation access method?",
+    options: ["A. Time is shared purely on code division.", "B. Time is divided into intervals preceded by a reservation frame.", "C. Time slots are permanently allocated.", "D. Time is handled via a token ring."],
+    correct: 1,
+    explanation: "In the reservation method, time is divided into intervals, and in each interval, a reservation frame precedes the data frames." },
+  { q: "69. In a polling system, which device controls the link?",
+    options: ["A. Secondary station", "B. Successor node", "C. Primary station", "D. Predecessor node"],
+    correct: 2,
+    explanation: "In a polling topology, the primary device controls the link; secondary devices follow its instructions." },
+  { q: "70. When is the \"select\" function used in polling?",
+    options: ["A. When the secondary has data to send", "B. When the primary device has data to send", "C. When the primary device is ready to receive", "D. When a collision is detected"],
+    correct: 1,
+    explanation: "The select function is used whenever the primary device has data to send." },
+  { q: "71. When is the \"poll\" function used in polling?",
+    options: ["A. When the primary device has data to send", "B. When the primary device is ready to receive data", "C. When setting up an ARP request", "D. When making a channel reservation"],
+    correct: 1,
+    explanation: "The poll function is used when the primary device is ready to receive data." },
+  { q: "72. In the token-passing method, how are stations organized?",
+    options: ["A. In a random mesh", "B. In a logical ring", "C. In a strict hierarchy", "D. In separate frequency bands"],
+    correct: 1,
+    explanation: "In the token-passing method, stations in a network are organized in a logical ring." },
+  { q: "73. What are the two relationship terms used to describe stations relative to one another in a token-passing logical ring?",
+    options: ["A. Parent and child", "B. Primary and secondary", "C. Predecessor and successor", "D. Client and server"],
+    correct: 2,
+    explanation: "For each station, there is a predecessor (logically before) and a successor (logically after)." },
+  { q: "74. Does token-passing require a physical ring topology?",
+    options: ["A. Yes, it only works on physical rings.", "B. No, the ring can be logical and mapped over other physical topologies like star or bus.", "C. Yes, dual rings are mandatory.", "D. No, it requires a broadcast mesh."],
+    correct: 1,
+    explanation: "Stations do not have to be physically connected in a ring; the ring can be a logical one, overlaid on topologies like bus or star." },
+  { q: "75. Which of the following is NOT one of the physical topologies shown that can create a logical ring in the token-passing method?",
+    options: ["A. Physical ring", "B. Star ring", "C. Bus ring", "D. Mesh ring"],
+    correct: 3,
+    explanation: "The physical topologies shown that can create a logical ring are physical ring, dual ring, bus ring, and star ring (Mesh is not included)." },
+  { q: "76. What is another name for Channelization?",
+    options: ["A. Channel arbitration", "B. Channel partition", "C. Contention windowing", "D. Network segregation"],
+    correct: 1,
+    explanation: "Channelization is sometimes called channel partition." },
+  { q: "77. In channelization, the available bandwidth of a link is shared among different stations in time, frequency, or what other method?",
+    options: ["A. Code", "B. Space", "C. Tokens", "D. Mac addresses"],
+    correct: 0,
+    explanation: "Channelization is a method where bandwidth is shared in time, frequency, or through code." },
+  { q: "78. In Frequency-Division Multiple Access (FDMA), how is bandwidth shared?",
+    options: ["A. Divided into time slots", "B. Divided into frequency bands", "C. Shared via code chips", "D. Authorized via tokens"],
+    correct: 1,
+    explanation: "In FDMA, the available bandwidth is divided into frequency bands (channels)." },
+  { q: "79. In Frequency-Division Multiple Access (FDMA), what device does each station use to confine the transmitter frequencies?",
+    options: ["A. An optical splitter", "B. A bandpass filter", "C. A token ring", "D. A collision detector"],
+    correct: 1,
+    explanation: "Each station uses a bandpass filter to confine the transmitter frequencies." },
+  { q: "80. What is used in FDMA to prevent station interferences?",
+    options: ["A. Acknowledgment frames", "B. Collision domains", "C. Guard bands", "D. Time delays"],
+    correct: 2,
+    explanation: "To prevent station interferences, the allocated bands in FDMA are separated from one another by small guard bands." },
+  { q: "81. In Time-Division Multiple Access (TDMA), how do stations share the bandwidth?",
+    options: ["A. Through permanently assigned frequencies", "B. Through code sequences", "C. In time, allocated via time slots", "D. Through collision detection"],
+    correct: 2,
+    explanation: "In TDMA, stations share the bandwidth of the channel in time, and each station is allocated a time slot." },
+  { q: "82. How does CDMA differ from FDMA regarding bandwidth usage?",
+    options: ["A. CDMA divides the bandwidth into smaller frequency bands.", "B. CDMA uses only half the bandwidth.", "C. In CDMA, only one channel occupies the entire bandwidth of the link.", "D. CDMA uses guard bands instead of full bandwidth."],
+    correct: 2,
+    explanation: "CDMA differs from FDMA because only one channel occupies the entire bandwidth of the link." },
+  { q: "83. How does CDMA differ from TDMA regarding timing?",
+    options: ["A. CDMA uses stricter time slots.", "B. CDMA stations cannot send simultaneously.", "C. In CDMA, all stations can send data simultaneously with no timesharing.", "D. CDMA uses time intervals for reservations."],
+    correct: 2,
+    explanation: "CDMA differs from TDMA because all stations can send data simultaneously; there is no timesharing." },
+  { q: "84. What is each station assigned in CDMA based on coding theory?",
+    options: ["A. A dedicated frequency", "B. A time slot", "C. A code (sequence of chips)", "D. A random backoff time"],
+    correct: 2,
+    explanation: "CDMA is based on coding theory, and each station is assigned a code (a sequence of chips)." }
+];
+
+/* ============ Quiz Logic ============ */
+const app = document.getElementById('app');
+let currentIndex = 0;
+let score = 0;
+let userAnswers = questions.map(() => ({ selectedIndex: null, answered: false }));
+
+function renderQuestion() {
+  const q = questions[currentIndex];
+  const total = questions.length;
+  const state = userAnswers[currentIndex];
+
+  app.innerHTML = `
+    <div class="topbar">
+      <span>Question ${currentIndex + 1} of ${total}</span>
+      <span class="progress">Score: ${score}</span>
+    </div>
+    <div class="question">${q.q}</div>
+    <div class="options" id="options"></div>
+    <div class="explanation ${state.answered ? '' : 'hidden'}" id="explanation">
+      <strong>✅ Correct Answer:</strong> ${q.options[q.correct]}<br><br>
+      <strong>💡 Explanation:</strong> ${q.explanation}
+    </div>
+    <div class="nav-buttons">
+      <button class="navbtn prevbtn" id="prevBtn" ${currentIndex === 0 ? 'disabled' : ''}>← Previous</button>
+      <button class="navbtn nextbtn" id="nextBtn" ${state.answered ? '' : 'disabled'}>
+        ${currentIndex === total - 1 ? 'Show Results 🎯' : 'Next →'}
+      </button>
+    </div>
+  `;
+
+  const optionsBox = document.getElementById('options');
+  q.options.forEach((opt, i) => {
+    const div = document.createElement('div');
+    div.className = 'option';
+    div.textContent = opt;
+
+    if (state.answered) {
+      div.classList.add('locked');
+      if (i === q.correct) {
+        div.classList.add('correct');
+      } else if (i === state.selectedIndex) {
+        div.classList.add('wrong');
+      }
+    } else {
+      div.onclick = () => selectOption(i, div);
+    }
+    optionsBox.appendChild(div);
+  });
+
+  document.getElementById('nextBtn').onclick = nextQuestion;
+  document.getElementById('prevBtn').onclick = prevQuestion;
+}
+
+function selectOption(index, el) {
+  const state = userAnswers[currentIndex];
+  if (state.answered) return;
+
+  state.answered = true;
+  state.selectedIndex = index;
+  const q = questions[currentIndex];
+  const allOptions = document.querySelectorAll('.option');
+  allOptions.forEach(o => o.classList.add('locked'));
+
+  if (index === q.correct) {
+    el.classList.add('correct');
+    score++;
+  } else {
+    el.classList.add('wrong');
+    allOptions[q.correct].classList.add('correct');
+  }
+
+  document.querySelector('.progress').textContent = `Score: ${score}`;
+  document.getElementById('explanation').classList.remove('hidden');
+  document.getElementById('nextBtn').disabled = false;
+}
+
+function nextQuestion() {
+  if (currentIndex < questions.length - 1) {
+    currentIndex++;
+    renderQuestion();
+  } else {
+    showResults();
+  }
+}
+
+function prevQuestion() {
+  if (currentIndex > 0) {
+    currentIndex--;
+    renderQuestion();
+  }
+}
+
+function showResults() {
+  const total = questions.length;
+  app.innerHTML = `
+    <div class="final">
+      <h2>🎉 Quiz Complete!</h2>
+      <p>Your Score: <strong>${score}</strong> out of <strong>${total}</strong></p>
+      <p>Percentage: ${Math.round((score / total) * 100)}%</p>
+      <button class="restart" id="restartBtn">Restart Quiz ↻</button>
+    </div>
+  `;
+  document.getElementById('restartBtn').onclick = () => {
+    currentIndex = 0;
+    score = 0;
+    userAnswers = questions.map(() => ({ selectedIndex: null, answered: false }));
+    renderQuestion();
+  };
+}
+
+renderQuestion();
+</script>
+</body>
+</html>
